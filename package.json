@@ -1,0 +1,16 @@
+{
+  "name": "yt-tt-downloader",
+  "version": "1.0.0",
+  "description": "Backend for YouTube & TikTok downloader bot using yt-dlp",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
