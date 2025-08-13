@@ -11,13 +11,18 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const PROXY = "http://38.147.98.190:8080"; // <-- your working proxy
+
 // Inspect formats
 app.get("/api/inspect", async (req, res) => {
   const { url, kind } = req.query;
   if (!url) return res.status(400).json({ error: "url required" });
 
   try {
-    const json = await ytdlp(url, { dumpJson: true });
+    const json = await ytdlp(url, {
+      dumpJson: true,
+      proxy: PROXY
+    });
 
     let formats = json.formats || [];
     if (kind === "yta") {
@@ -55,7 +60,8 @@ app.get("/api/download", async (req, res) => {
       format: format_id,
       noPlaylist: true,
       mergeOutputFormat: kind === "yta" ? "m4a" : "mp4",
-      output: outPath
+      output: outPath,
+      proxy: PROXY
     });
 
     const files = fs.readdirSync(tmpDir).map(f => path.join(tmpDir, f));
@@ -69,5 +75,3 @@ app.get("/api/download", async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
-
-app.listen(3000, () => console.log("Backend running on :3000"));
