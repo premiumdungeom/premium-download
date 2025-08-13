@@ -1,5 +1,5 @@
 import express from "express";
-import { spawn } from "child_process";
+import ytdlp from "yt-dlp-exec"; // npm install yt-dlp-exec
 import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
@@ -11,33 +11,21 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-function runYtDlp(args) {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("yt-dlp", args);
-    let out = "";
-    let err = "";
-    proc.stdout.on("data", (d) => (out += d));
-    proc.stderr.on("data", (d) => (err += d));
-    proc.on("close", (code) => {
-      if (code === 0) resolve(out);
-      else reject(new Error(err || out));
-    });
-  });
-}
-
 // Inspect formats
 app.get("/api/inspect", async (req, res) => {
   const { url, kind } = req.query;
   if (!url) return res.status(400).json({ error: "url required" });
-  try {
-    const info = await runYtDlp(["-J", url]);
-    const json = JSON.parse(info);
-    let formats = json.formats || [];
 
+  try {
+    const json = await ytdlp(url, { dumpJson: true });
+
+    let formats = json.formats || [];
     if (kind === "yta") {
       formats = formats.filter(f => f.vcodec === "none" && /m4a|mp3/i.test(f.ext));
     } else {
-      formats = formats.filter(f => f.vcodec && f.height && [360,480,720].includes(f.height) && /mp4/i.test(f.ext));
+      formats = formats.filter(
+        f => f.vcodec && f.height && [360, 480, 720].includes(f.height) && /mp4/i.test(f.ext)
+      );
     }
 
     const cleaned = formats.map(f => ({
@@ -54,7 +42,7 @@ app.get("/api/inspect", async (req, res) => {
   }
 });
 
-// Download & return file path
+// Download & return file
 app.get("/api/download", async (req, res) => {
   const { url, format_id, kind } = req.query;
   if (!url || !format_id) return res.status(400).json({ error: "url & format_id required" });
@@ -62,20 +50,19 @@ app.get("/api/download", async (req, res) => {
   try {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "dl-"));
     const outPath = path.join(tmpDir, "%(title).200B.%(ext)s");
-    const args = [
-      "-f", format_id,
-      "--no-playlist",
-      "--merge-output-format", kind === "yta" ? "m4a" : "mp4",
-      "-o", outPath,
-      url
-    ];
 
-    await runYtDlp(args);
+    await ytdlp(url, {
+      format: format_id,
+      noPlaylist: true,
+      mergeOutputFormat: kind === "yta" ? "m4a" : "mp4",
+      output: outPath
+    });
 
     const files = fs.readdirSync(tmpDir).map(f => path.join(tmpDir, f));
     if (!files.length) throw new Error("No file downloaded");
+
     const filePath = files[0];
-    res.download(filePath, path.basename(filePath), (err) => {
+    res.download(filePath, path.basename(filePath), err => {
       if (!err) fs.rmSync(tmpDir, { recursive: true, force: true });
     });
   } catch (e) {
@@ -83,4 +70,4 @@ app.get("/api/download", async (req, res) => {
   }
 });
 
-app.listen(3000, () => console.log("Backend on :3000"));
+app.listen(3000, () => console.log("Backend running on :3000"));
