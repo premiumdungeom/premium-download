@@ -47,6 +47,10 @@ app.get("/api/inspect", async (req, res) => {
   }
 });
 
+app.get('/ping', (req, res) => {
+  res.json({ message: 'pong' });
+});
+
 // Download & return file
 app.get("/api/download", async (req, res) => {
   const { url, format_id, kind } = req.query;
